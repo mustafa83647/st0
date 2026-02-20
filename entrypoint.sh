@@ -106,10 +106,7 @@ else
     echo "--- No user/pass or CONFIG_YAML provided. App will use its default settings. ---"
 fi
 
-echo '--- Attempting to update SillyTavern Core from GitHub (staging branch) ---'
-if [ -d ".git" ] && [ "$(git rev-parse --abbrev-ref HEAD)" = "staging" ]; then
-  git reset --hard HEAD && git pull origin staging || echo 'WARN: git pull failed'
-fi
+# ملاحظة: تم إزالة كود التحديث التلقائي (git pull) للحفاظ على ثبات نسخة 1.14 الخفيفة وعدم العودة لنسخة 1.16 تلقائياً
 
 # ====================================================================
 # --- BEGIN: RCLONE AUTO-RESTORE & SYNC TO GOOGLE DRIVE ---
@@ -121,7 +118,8 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
   echo "--- [RESTORE] Checking for existing data in Google Drive ---"
   if [ ! -d "${APP_HOME}/data/default-user/chats" ] || [ -z "$(ls -A ${APP_HOME}/data/default-user/chats 2>/dev/null)" ]; then
     echo "No existing chats found locally. Restoring from Google Drive..."
-    rclone copy drive:ST-Backup ${APP_HOME}/data/ --config "${RCLONE_CONF}" --quiet || echo "WARN: Restore failed or Drive is empty."
+    # التعديل: استثناء مجلد backups عند الاستعادة
+    rclone copy drive:ST-Backup ${APP_HOME}/data/ --config "${RCLONE_CONF}" --exclude "default-user/backups/**" --quiet || echo "WARN: Restore failed or Drive is empty."
     chown -R node:node ${APP_HOME}/data 2>/dev/null || true
     echo "--- SUCCESS: Data restored from Google Drive. ---"
   else
@@ -133,7 +131,8 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
     while true; do
       sleep 60
       echo "--- Auto-Syncing data to Google Drive... ---"
-      rclone sync ${APP_HOME}/data/ drive:ST-Backup --config "${RCLONE_CONF}" --exclude "access.log*" --quiet || echo "WARN: Sync failed."
+      # التعديل: منع رفع ملف اللوق ومجلد backups الداخلي المزعج
+      rclone sync ${APP_HOME}/data/ drive:ST-Backup --config "${RCLONE_CONF}" --exclude "access.log*" --exclude "default-user/backups/**" --quiet || echo "WARN: Sync failed."
     done
   ) &
 fi
