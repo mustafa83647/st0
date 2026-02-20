@@ -18,11 +18,11 @@ ENV APP_HOME=${APP_HOME}
 ENV USERNAME=${USERNAME}
 ENV PASSWORD=${PASSWORD}
 
-# --- BEGIN: Clone SillyTavern Core (Latest Staging Updates) ---
+# --- BEGIN: Clone SillyTavern Core (Stable 1.14.0) ---
 RUN \
-  echo "*** Cloning SillyTavern Core (Staging Branch) ***" && \
-  # تم تغيير الفرع إلى staging للحصول على آخر التحديثات مباشرة
-  git clone -b staging --depth 1 https://github.com/SillyTavern/SillyTavern.git . && \
+  echo "*** Cloning SillyTavern Core (Version 1.14.0) ***" && \
+  # تم التغيير لنسخة 1.14.0 لضمان الخفة وعدم وجود تعليق
+  git clone -b 1.14.0 --depth 1 https://github.com/SillyTavern/SillyTavern.git . && \
   echo "*** Cloning complete. ***"
 # --- END: Clone SillyTavern Core ---
 
