@@ -18,11 +18,10 @@ ENV APP_HOME=${APP_HOME}
 ENV USERNAME=${USERNAME}
 ENV PASSWORD=${PASSWORD}
 
-# --- BEGIN: Clone SillyTavern Core (Latest Release) ---
+# --- BEGIN: Clone SillyTavern Core (Version 1.15.0) ---
 RUN \
-  echo "*** Cloning SillyTavern Core (Latest Version) ***" && \
-  # تم إزالة تحديد النسخة القديمة لسحب أحدث إصدار تلقائياً
-  git clone -b release --depth 1 https://github.com/SillyTavern/SillyTavern.git . && \
+  echo "*** Cloning SillyTavern Core (Version 1.15.0) ***" && \
+  git clone -b 1.15.0 --depth 1 https://github.com/SillyTavern/SillyTavern.git . && \
   echo "*** Cloning complete. ***"
 # --- END: Clone SillyTavern Core ---
 
