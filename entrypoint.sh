@@ -16,7 +16,7 @@ protocol:
     ipv6: false
 dnsPreferIPv6: false
 autorunHostname: "auto"
-port: 8000
+port: 7860
 autorunPortOverride: -1
 ssl:
   enabled: false
@@ -172,7 +172,8 @@ echo "*** Starting SillyTavern... ***"
 node ${APP_HOME}/server.js &
 SERVER_PID=$!
 
-HEALTH_CHECK_URL="http://localhost:8000/"
+# تم التعديل هنا ليكون 7860
+HEALTH_CHECK_URL="http://localhost:7860/"
 CURL_COMMAND="curl -sf"
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
@@ -188,7 +189,8 @@ while ! eval "${CURL_COMMAND} ${HEALTH_CHECK_URL}" > /dev/null; do
         kill ${SERVER_PID}
         exit 1
     fi
-    echo "SillyTavern is still starting or not responsive on port 8000, waiting 5 seconds..."
+    # تم التعديل هنا ليكون 7860
+    echo "SillyTavern is still starting or not responsive on port 7860, waiting 5 seconds..."
     sleep 5
 done
 
