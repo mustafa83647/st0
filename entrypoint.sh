@@ -43,7 +43,7 @@ enableUserAccounts: false
 enableDiscreetLogin: false
 autheliaAuth: false
 perUserBasicAuth: false
-sessionTimeout: -1
+sessionTimeout: 31536000000
 disableCsrfProtection: false
 securityOverride: false
 logging:
@@ -167,6 +167,12 @@ if [ -n "$PLUGINS" ]; then
   chown -R node:node ./plugins 2>/dev/null || true
   echo "*** Plugin installation finished. ***"
 fi
+
+echo "*** Setting up persistent secrets for Google Drive... ***"
+if [ ! -f "${APP_HOME}/data/secrets.json" ]; then
+    echo '{}' > "${APP_HOME}/data/secrets.json"
+fi
+ln -sf "${APP_HOME}/data/secrets.json" "${APP_HOME}/secrets.json"
 
 echo "*** Starting SillyTavern... ***"
 node ${APP_HOME}/server.js &
