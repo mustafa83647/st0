@@ -5,7 +5,7 @@ if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   echo "--- Custom Secure Form Auth enabled: Creating config.yaml and Proxy. ---"
   cat <<EOT > ${CONFIG_FILE}
 dataRoot: ./data
-listen: true
+listen: false
 listenAddress:
   ipv4: 127.0.0.1
   ipv6: '[::1]'
@@ -43,7 +43,7 @@ autheliaAuth: false
 perUserBasicAuth: false
 sessionTimeout: -1
 disableCsrfProtection: false
-securityOverride: false
+securityOverride: true
 logging:
   enableAccessLog: true
   minLogLevel: 0
@@ -213,6 +213,7 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
   echo "--- Configuring Rclone for Google Drive ---"
   RCLONE_CONF="/tmp/rclone.conf"
   echo "${RCLONE_CONFIG_CONTENT}" > "${RCLONE_CONF}"
+
   echo "--- [RESTORE] Checking for existing data in Google Drive ---"
   if [ ! -d "${APP_HOME}/data/default-user/chats" ] || [ -z "$(ls -A ${APP_HOME}/data/default-user/chats 2>/dev/null)" ]; then
     echo "No existing chats found locally. Restoring from Google Drive..."
@@ -243,10 +244,12 @@ if [ -n "$PLUGINS" ]; then
     if [ -z "$plugin_url" ]; then continue; fi
     plugin_name_git=$(basename "$plugin_url")
     plugin_name=${plugin_name_git%.git}
+
     if [ "$plugin_name" = "cloud-saves" ]; then
        echo "--- Skipping cloud-saves plugin as Rclone is now handling backups ---"
        continue
     fi
+
     plugin_dir="./plugins/$plugin_name"
     echo "--- Installing plugin: $plugin_name from $plugin_url into $plugin_dir ---"
     rm -rf "$plugin_dir"
@@ -264,19 +267,17 @@ node ${APP_HOME}/server.js &
 SERVER_PID=$!
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
     HEALTH_CHECK_URL="http://127.0.0.1:7861/"
-    # إزالة حرف f لكي لا يفشل الفحص إذا كان السيرفر يجهز نفسه
     CURL_COMMAND="curl -s"
 else
     HEALTH_CHECK_URL="http://127.0.0.1:7860/"
     CURL_COMMAND="curl -s"
 fi
 RETRY_COUNT=0
-# تم زيادة عدد المحاولات إلى 60 (أي 5 دقائق كاملة) لكي لا نقتل السيرفر وهو يقلع
-MAX_RETRIES=60
+MAX_RETRIES=15
 while ! eval "${CURL_COMMAND} ${HEALTH_CHECK_URL}" > /dev/null; do
     RETRY_COUNT=$((RETRY_COUNT+1))
     if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
-        echo "SillyTavern failed to start after 5 minutes. Exiting."
+        echo "SillyTavern failed to start. Exiting."
         kill ${SERVER_PID}
         exit 1
     fi
