@@ -179,11 +179,11 @@ echo "*** Starting SillyTavern... ***"
 node ${APP_HOME}/server.js &
 SERVER_PID=$!
 
-HEALTH_CHECK_URL="http://localhost:7860/"
+# تم التعديل هنا إلى الأيبي الصريح لتفادي مشكلة الـ 000 على هجين فيس
+HEALTH_CHECK_URL="http://127.0.0.1:7860/"
 RETRY_COUNT=0
 MAX_RETRIES=12 
 
-# فحص حماية دقيق يتجنب أخطاء دبل الـ 000 ويصبر على السيرفر لحد ما يفتح كلياً
 while true; do
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${HEALTH_CHECK_URL} || true)
     if [ "$HTTP_STATUS" != "000" ] && [ -n "$HTTP_STATUS" ]; then
