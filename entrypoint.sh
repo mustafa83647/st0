@@ -4,7 +4,7 @@ set -e
 CONFIG_FILE="${APP_HOME}/config.yaml"
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
-  echo "--- Basic auth enabled: Creating config.yaml with provided credentials. ---"
+  echo "--- Creating config.yaml with User Accounts enabled. ---"
   cat <<EOT > ${CONFIG_FILE}
 dataRoot: ./data
 listen: true
@@ -28,7 +28,7 @@ whitelist:
   - ::1
   - 127.0.0.1
 whitelistDockerHosts: true
-basicAuthMode: true
+basicAuthMode: false
 basicAuthUser:
   username: "${USERNAME}"
   password: "${PASSWORD}"
@@ -39,7 +39,7 @@ requestProxy:
   bypass:
     - localhost
     - 127.0.0.1
-enableUserAccounts: false
+enableUserAccounts: true
 enableDiscreetLogin: false
 autheliaAuth: false
 perUserBasicAuth: false
@@ -183,7 +183,7 @@ HEALTH_CHECK_URL="http://localhost:7860/"
 CURL_COMMAND="curl -sf"
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
-    CURL_COMMAND="curl -sf -u \"${USERNAME}:${PASSWORD}\""
+    CURL_COMMAND="curl -sf" # تم التعديل هنا ليتناسب مع الحسابات
 fi
 
 RETRY_COUNT=0
