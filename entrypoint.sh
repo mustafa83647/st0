@@ -123,11 +123,22 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
     echo "Local data already exists, skipping restore."
   fi
 
+  # استرجاع ملف الأسرار بأمان وتعديل صلاحياته للمستخدم العادي
+  if [ -f "${APP_HOME}/data/secrets.json" ]; then
+    echo "Restoring secrets.json from persistent data..."
+    cp "${APP_HOME}/data/secrets.json" "${APP_HOME}/secrets.json"
+    chown node:node "${APP_HOME}/secrets.json" 2>/dev/null || true
+  fi
+
   echo "--- [SYNC] Starting Auto-Sync to Google Drive every 1 minute ---"
   (
     while true; do
       sleep 60
       echo "--- Auto-Syncing data to Google Drive... ---"
+      # نسخ ملف الأسرار إلى مجلد data قبل المزامنة لتأمينه بالدرايف
+      if [ -f "${APP_HOME}/secrets.json" ]; then
+        cp "${APP_HOME}/secrets.json" "${APP_HOME}/data/secrets.json"
+      fi
       rclone sync ${APP_HOME}/data/ drive:ST-Backup --config "${RCLONE_CONF}" --exclude "access.log*" --exclude "default-user/backups/**" --quiet || echo "WARN: Sync failed."
     done
   ) &
@@ -164,12 +175,6 @@ if [ -n "$PLUGINS" ]; then
   echo "*** Plugin installation finished. ***"
 fi
 
-echo "*** Setting up persistent secrets for Google Drive... ***"
-if [ ! -f "${APP_HOME}/data/secrets.json" ]; then
-    echo '{}' > "${APP_HOME}/data/secrets.json"
-fi
-ln -sf "${APP_HOME}/data/secrets.json" "${APP_HOME}/secrets.json"
-
 echo "*** Starting SillyTavern... ***"
 node ${APP_HOME}/server.js &
 SERVER_PID=$!
@@ -178,10 +183,10 @@ HEALTH_CHECK_URL="http://localhost:7860/"
 RETRY_COUNT=0
 MAX_RETRIES=12 
 
-# فحص حماية ذكي يقرأ حالة المنفذ الفعلي بغض النظر عن التحويلات
+# فحص حماية دقيق يتجنب أخطاء دبل الـ 000 ويصبر على السيرفر لحد ما يفتح كلياً
 while true; do
-    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${HEALTH_CHECK_URL} || echo "000")
-    if [ "$HTTP_STATUS" != "000" ]; then
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${HEALTH_CHECK_URL} || true)
+    if [ "$HTTP_STATUS" != "000" ] && [ -n "$HTTP_STATUS" ]; then
         echo "SillyTavern started successfully with HTTP status ${HTTP_STATUS}!"
         break
     fi
@@ -192,7 +197,7 @@ while true; do
         kill ${SERVER_PID} 2>/dev/null || true
         exit 1
     fi
-    echo "SillyTavern is still starting or not responsive on port 7860 (Status: ${HTTP_STATUS}), waiting 5 seconds..."
+    echo "SillyTavern is still starting on port 7860 (Status: ${HTTP_STATUS}), waiting 5 seconds..."
     sleep 5
 done
 
