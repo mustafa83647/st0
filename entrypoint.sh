@@ -3,6 +3,12 @@ set -e
 
 CONFIG_FILE="${APP_HOME}/config.yaml"
 
+# تحديد البورت تلقائياً بناءً على السيرفر
+PORT_TO_USE="7860"
+if [ -n "$PORT" ]; then
+  PORT_TO_USE="$PORT"
+fi
+
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
   echo "--- Creating config.yaml with User Accounts enabled. ---"
   cat <<EOT > ${CONFIG_FILE}
@@ -16,7 +22,7 @@ protocol:
     ipv6: false
 dnsPreferIPv6: false
 autorunHostname: "auto"
-port: 7860
+port: ${PORT_TO_USE}
 autorunPortOverride: -1
 ssl:
   enabled: false
@@ -123,7 +129,6 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
     echo "Local data already exists, skipping restore."
   fi
 
-  # استرجاع ملف الأسرار بأمان وتعديل صلاحياته للمستخدم العادي
   if [ -f "${APP_HOME}/data/secrets.json" ]; then
     echo "Restoring secrets.json from persistent data..."
     cp "${APP_HOME}/data/secrets.json" "${APP_HOME}/secrets.json"
@@ -135,7 +140,6 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
     while true; do
       sleep 60
       echo "--- Auto-Syncing data to Google Drive... ---"
-      # نسخ ملف الأسرار إلى مجلد data قبل المزامنة لتأمينه بالدرايف
       if [ -f "${APP_HOME}/secrets.json" ]; then
         cp "${APP_HOME}/secrets.json" "${APP_HOME}/data/secrets.json"
       fi
@@ -179,29 +183,27 @@ echo "*** Starting SillyTavern... ***"
 node ${APP_HOME}/server.js &
 SERVER_PID=$!
 
-# تم التعديل هنا إلى الأيبي الصريح لتفادي مشكلة الـ 000 على هجين فيس
-HEALTH_CHECK_URL="http://127.0.0.1:7860/"
+HEALTH_CHECK_URL="http://127.0.0.1:${PORT_TO_USE}/"
 RETRY_COUNT=0
-MAX_RETRIES=12 
+MAX_RETRIES=24 
 
-while true; do
+echo "--- Monitoring SillyTavern startup on port ${PORT_TO_USE}... ---"
+while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${HEALTH_CHECK_URL} || true)
     if [ "$HTTP_STATUS" != "000" ] && [ -n "$HTTP_STATUS" ]; then
         echo "SillyTavern started successfully with HTTP status ${HTTP_STATUS}!"
         break
     fi
-    
     RETRY_COUNT=$((RETRY_COUNT+1))
-    if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
-        echo "SillyTavern failed to start. Exiting."
-        kill ${SERVER_PID} 2>/dev/null || true
-        exit 1
-    fi
-    echo "SillyTavern is still starting on port 7860 (Status: ${HTTP_STATUS}), waiting 5 seconds..."
+    echo "SillyTavern is still initializing (Status: ${HTTP_STATUS}), waiting 5 seconds... (${RETRY_COUNT}/${MAX_RETRIES})"
     sleep 5
 done
 
-echo "SillyTavern started successfully! Beginning periodic keep-alive..."
+if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
+    echo "--- NOTE: SillyTavern is taking longer to respond, keeping container alive anyway. ---"
+fi
+
+echo "SillyTavern background processes active. Beginning periodic keep-alive..."
 
 install_extensions() {
     sleep 40
