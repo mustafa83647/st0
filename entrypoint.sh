@@ -7,8 +7,8 @@ if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
 dataRoot: ./data
 listen: true
 listenAddress:
-  ipv4: 0.0.0.0
-  ipv6: '[::]'
+  ipv4: 127.0.0.1
+  ipv6: '[::1]'
 protocol:
     ipv4: true
     ipv6: false
@@ -183,7 +183,7 @@ app.use((req, res, next) => {
     }
 });
 const proxy = createProxyMiddleware({
-    target: `http://0.0.0.0:${TARGET_PORT}`,
+    target: `http://127.0.0.1:${TARGET_PORT}`,
     changeOrigin: true,
     ws: true,
     logLevel: 'silent'
@@ -213,7 +213,6 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
   echo "--- Configuring Rclone for Google Drive ---"
   RCLONE_CONF="/tmp/rclone.conf"
   echo "${RCLONE_CONFIG_CONTENT}" > "${RCLONE_CONF}"
-
   echo "--- [RESTORE] Checking for existing data in Google Drive ---"
   if [ ! -d "${APP_HOME}/data/default-user/chats" ] || [ -z "$(ls -A ${APP_HOME}/data/default-user/chats 2>/dev/null)" ]; then
     echo "No existing chats found locally. Restoring from Google Drive..."
@@ -244,12 +243,10 @@ if [ -n "$PLUGINS" ]; then
     if [ -z "$plugin_url" ]; then continue; fi
     plugin_name_git=$(basename "$plugin_url")
     plugin_name=${plugin_name_git%.git}
-
     if [ "$plugin_name" = "cloud-saves" ]; then
        echo "--- Skipping cloud-saves plugin as Rclone is now handling backups ---"
        continue
     fi
-
     plugin_dir="./plugins/$plugin_name"
     echo "--- Installing plugin: $plugin_name from $plugin_url into $plugin_dir ---"
     rm -rf "$plugin_dir"
@@ -266,22 +263,24 @@ echo "*** Starting SillyTavern... ***"
 node ${APP_HOME}/server.js &
 SERVER_PID=$!
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
-    HEALTH_CHECK_URL="http://0.0.0.0:7861/"
-    CURL_COMMAND="curl -sf"
+    HEALTH_CHECK_URL="http://127.0.0.1:7861/"
+    # إزالة حرف f لكي لا يفشل الفحص إذا كان السيرفر يجهز نفسه
+    CURL_COMMAND="curl -s"
 else
-    HEALTH_CHECK_URL="http://0.0.0.0:7860/"
-    CURL_COMMAND="curl -sf"
+    HEALTH_CHECK_URL="http://127.0.0.1:7860/"
+    CURL_COMMAND="curl -s"
 fi
 RETRY_COUNT=0
-MAX_RETRIES=12
+# تم زيادة عدد المحاولات إلى 60 (أي 5 دقائق كاملة) لكي لا نقتل السيرفر وهو يقلع
+MAX_RETRIES=60
 while ! eval "${CURL_COMMAND} ${HEALTH_CHECK_URL}" > /dev/null; do
     RETRY_COUNT=$((RETRY_COUNT+1))
     if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
-        echo "SillyTavern failed to start. Exiting."
+        echo "SillyTavern failed to start after 5 minutes. Exiting."
         kill ${SERVER_PID}
         exit 1
     fi
-    echo "SillyTavern is still starting, waiting 5 seconds..."
+    echo "SillyTavern is still starting, waiting 5 seconds... (Attempt ${RETRY_COUNT}/${MAX_RETRIES})"
     sleep 5
 done
 echo "SillyTavern started successfully! Beginning periodic keep-alive..."
