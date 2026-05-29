@@ -3,14 +3,14 @@ set -e
 
 CONFIG_FILE="${APP_HOME}/config.yaml"
 
-# تحديد البورت تلقائياً بناءً على السيرفر
+# تحديد البورت تلقائياً
 PORT_TO_USE="7860"
 if [ -n "$PORT" ]; then
   PORT_TO_USE="$PORT"
 fi
 
 if [ -n "${USERNAME}" ] && [ -n "${PASSWORD}" ]; then
-  echo "--- Creating config.yaml with User Accounts enabled. ---"
+  echo "--- Building Clean config.yaml ---"
   cat <<EOT > ${CONFIG_FILE}
 dataRoot: ./data
 listen: true
@@ -19,7 +19,7 @@ listenAddress:
   ipv6: '[::]'
 protocol:
     ipv4: true
-    ipv6: false
+    ipv6: true
 dnsPreferIPv6: false
 autorunHostname: "auto"
 port: ${PORT_TO_USE}
@@ -80,7 +80,7 @@ extensions:
   enabled: true
   autoUpdate: false
   models:
-    autoDownload: true
+    autoDownload: false
     classification: Cohee/distilbert-base-uncased-go-emotions-onnx
     captioning: Xenova/vit-gpt2-image-captioning
     embedding: Cohee/jina-embeddings-v2-base-en
@@ -104,12 +104,6 @@ claude:
 enableServerPlugins: true
 enableServerPluginsAutoUpdate: false
 EOT
-
-elif [ -n "${CONFIG_YAML}" ]; then
-  echo "--- Found CONFIG_YAML, creating config.yaml from environment variable. ---"
-  printf '%s\n' "${CONFIG_YAML}" > ${CONFIG_FILE}
-else
-    echo "--- No user/pass or CONFIG_YAML provided. App will use its default settings. ---"
 fi
 
 # ====================================================================
@@ -122,13 +116,14 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
   echo "--- [RESTORE] Checking for existing data in Google Drive ---"
   if [ ! -d "${APP_HOME}/data/default-user/chats" ] || [ -z "$(ls -A ${APP_HOME}/data/default-user/chats 2>/dev/null)" ]; then
     echo "No existing chats found locally. Restoring from Google Drive..."
-    rclone copy drive:ST-Backup ${APP_HOME}/data/ --config "${RCLONE_CONF}" --exclude "default-user/backups/**" --quiet || echo "WARN: Restore failed or Drive is empty."
+    rclone copy drive:ST-Backup ${APP_HOME}/data/ --config "${RCLONE_CONF}" --exclude "default-user/backups/**" --quiet || true
     chown -R node:node ${APP_HOME}/data 2>/dev/null || true
     echo "--- SUCCESS: Data restored from Google Drive. ---"
   else
     echo "Local data already exists, skipping restore."
   fi
 
+  # استرجاع ملف الأسرار بأمان
   if [ -f "${APP_HOME}/data/secrets.json" ]; then
     echo "Restoring secrets.json from persistent data..."
     cp "${APP_HOME}/data/secrets.json" "${APP_HOME}/secrets.json"
@@ -139,11 +134,10 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
   (
     while true; do
       sleep 60
-      echo "--- Auto-Syncing data to Google Drive... ---"
       if [ -f "${APP_HOME}/secrets.json" ]; then
-        cp "${APP_HOME}/secrets.json" "${APP_HOME}/data/secrets.json"
+        cp "${APP_HOME}/secrets.json" "${APP_HOME}/data/secrets.json" 2>/dev/null || true
       fi
-      rclone sync ${APP_HOME}/data/ drive:ST-Backup --config "${RCLONE_CONF}" --exclude "access.log*" --exclude "default-user/backups/**" --quiet || echo "WARN: Sync failed."
+      rclone sync ${APP_HOME}/data/ drive:ST-Backup --config "${RCLONE_CONF}" --exclude "access.log*" --exclude "default-user/backups/**" --quiet || true
     done
   ) &
 fi
@@ -171,41 +165,16 @@ if [ -n "$PLUGINS" ]; then
     rm -rf "$plugin_dir"
     git clone --depth 1 "$plugin_url" "$plugin_dir"
     if [ -f "$plugin_dir/package.json" ]; then
-      (cd "$plugin_dir" && npm install --no-audit --no-fund --loglevel=error --no-progress --omit=dev --force && npm cache clean --force) || echo "WARN: Failed to install dependencies"
-    fi || echo "WARN: Failed to clone $plugin_name from $plugin_url, skipping..."
+      (cd "$plugin_dir" && npm install --no-audit --no-fund --loglevel=error --no-progress --omit=dev --force && npm cache clean --force) || true
+    fi || true
   done
   unset IFS
   chown -R node:node ./plugins 2>/dev/null || true
   echo "*** Plugin installation finished. ***"
 fi
 
-echo "*** Starting SillyTavern... ***"
-node ${APP_HOME}/server.js &
-SERVER_PID=$!
-
-HEALTH_CHECK_URL="http://127.0.0.1:${PORT_TO_USE}/"
-RETRY_COUNT=0
-MAX_RETRIES=24 
-
-echo "--- Monitoring SillyTavern startup on port ${PORT_TO_USE}... ---"
-while [ ${RETRY_COUNT} -lt ${MAX_RETRIES} ]; do
-    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${HEALTH_CHECK_URL} || true)
-    if [ "$HTTP_STATUS" != "000" ] && [ -n "$HTTP_STATUS" ]; then
-        echo "SillyTavern started successfully with HTTP status ${HTTP_STATUS}!"
-        break
-    fi
-    RETRY_COUNT=$((RETRY_COUNT+1))
-    echo "SillyTavern is still initializing (Status: ${HTTP_STATUS}), waiting 5 seconds... (${RETRY_COUNT}/${MAX_RETRIES})"
-    sleep 5
-done
-
-if [ ${RETRY_COUNT} -ge ${MAX_RETRIES} ]; then
-    echo "--- NOTE: SillyTavern is taking longer to respond, keeping container alive anyway. ---"
-fi
-
-echo "SillyTavern background processes active. Beginning periodic keep-alive..."
-
-install_extensions() {
+# تنصيب الإضافات بالخلفية بدون ما تعيق تشغيل السيرفر
+(
     sleep 40
     if [ -n "$EXTENSIONS" ]; then
         echo "*** Installing Extensions specified in EXTENSIONS environment variable: $EXTENSIONS ***"
@@ -222,7 +191,6 @@ install_extensions() {
             extension_name_git=$(basename "$extension_url")
             extension_name=${extension_name_git%.git}
             extension_dir="$EXTENSIONS_DIR/$extension_name"
-            echo "--- Installing extension: $extension_name ---"
             rm -rf "$extension_dir"
             git clone --depth 1 "$extension_url" "$extension_dir"
             if [ -f "$extension_dir/package.json" ]; then
@@ -232,13 +200,8 @@ install_extensions() {
         unset IFS
         chown -R node:node "$EXTENSIONS_DIR" 2>/dev/null || true
     fi
-}
+) &
 
-install_extensions &
-
-while kill -0 ${SERVER_PID} 2>/dev/null; do
-    curl -s ${HEALTH_CHECK_URL} > /dev/null || true
-    sleep 1800
-done &
-
-wait ${SERVER_PID}
+echo "*** Starting SillyTavern in Foreground ***"
+# هذا هو الأمر الجذري اللي يمنع السيرفر من التعليق وينطي القيادة لـ Node
+exec node ${APP_HOME}/server.js
