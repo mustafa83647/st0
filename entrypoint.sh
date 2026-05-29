@@ -96,7 +96,7 @@ claude:
 enableServerPlugins: true
 enableServerPluginsAutoUpdate: false
 EOT
-  # إنشاء كود البروكسي الآمن
+  # إنشاء كود البروكسي الآمن مع الواجهة الزجاجية الجديدة
   cat << 'EOF' > /tmp/auth-proxy.js
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
@@ -115,33 +115,127 @@ app.use(express.urlencoded({ extended: true }));
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
-    message: '<div style="color: #ff4d4d; text-align: center; font-family: sans-serif; margin-top: 50px;">تم حظر المحاولات المتكررة. يرجى المحاولة بعد 15 دقيقة.</div>'
+    message: '<div style="color: #ff4d4d; text-align: center; font-family: sans-serif; margin-top: 50px;">Too many attempts. Please try again in 15 minutes.</div>'
 });
 const loginHtml = `
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>تسجيل الدخول</title>
+<title>Login</title>
 <style>
-  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f11; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-  .login-box { background: #1a1a1e; padding: 2.5rem; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); text-align: center; width: 100%; max-width: 350px; border: 1px solid #333; }
-  .login-box h2 { margin-top: 0; color: #fff; font-size: 1.5rem; margin-bottom: 1.5rem; }
-  input { display: block; width: 100%; margin: 15px 0; padding: 12px; border: 1px solid #444; border-radius: 6px; background: #222; color: #fff; box-sizing: border-box; font-size: 1rem; transition: border-color 0.3s; }
-  input:focus { border-color: #007bff; outline: none; }
-  button { background: #007bff; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 1.1rem; font-weight: bold; transition: background 0.3s; }
-  button:hover { background: #0056b3; }
-  .error { color: #ff4d4d; margin-bottom: 15px; font-size: 0.9rem; }
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* خلفية متدرجة بنفسجية ساحرة تتحرك ببطء */
+    background: linear-gradient(135deg, #1e0b36, #4a154b, #6a1b5a, #2b1055);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  @keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  /* تأثير الزجاج الشفاف */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 40px 35px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    text-align: center;
+    color: white;
+    box-sizing: border-box;
+  }
+  .glass-panel h2 {
+    margin-top: 0;
+    margin-bottom: 35px;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  .input-container {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .input-container input {
+    width: 100%;
+    padding: 12px 40px 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    box-sizing: border-box;
+    outline: none;
+    transition: 0.3s;
+  }
+  .input-container input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .input-container input:focus {
+    border-color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .input-container svg {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    fill: rgba(255, 255, 255, 0.7);
+  }
+  .login-btn {
+    width: 100%;
+    padding: 12px;
+    background: white;
+    color: #4a154b;
+    border: none;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+    margin-top: 15px;
+  }
+  .login-btn:hover {
+    background: #f0f0f0;
+    box-shadow: 0 0 15px rgba(255,255,255,0.4);
+  }
+  .error {
+    color: #ff7675;
+    margin-bottom: 15px;
+    font-size: 13px;
+  }
 </style>
 </head>
 <body>
-  <div class="login-box">
-    <h2>تسجيل الدخول</h2>
+  <div class="glass-panel">
+    <h2>Login</h2>
     <form method="POST" action="/st-login">
-      <input type="text" name="username" placeholder="اسم المستخدم" required autocomplete="username" />
-      <input type="password" name="password" placeholder="كلمة المرور" required autocomplete="current-password" />
-      <button type="submit">دخول</button>
+      <div class="input-container">
+        <input type="text" name="username" placeholder="Username" required autocomplete="username" />
+        <!-- أيقونة المستخدم -->
+        <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      </div>
+      <div class="input-container">
+        <input type="password" name="password" placeholder="Password" required autocomplete="current-password" />
+        <!-- أيقونة القفل -->
+        <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+      </div>
+      <button type="submit" class="login-btn">Login</button>
     </form>
   </div>
 </body>
@@ -168,7 +262,7 @@ app.post('/st-login', loginLimiter, (req, res) => {
         });
         res.redirect('/');
     } else {
-        res.status(401).send(loginHtml.replace('</form>', '<div class="error">بيانات الدخول غير صحيحة!</div></form>'));
+        res.status(401).send(loginHtml.replace('</form>', '<div class="error">Invalid credentials!</div></form>'));
     }
 });
 app.get('/st-logout', (req, res) => {
