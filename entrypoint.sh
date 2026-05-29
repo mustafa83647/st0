@@ -96,7 +96,7 @@ claude:
 enableServerPlugins: true
 enableServerPluginsAutoUpdate: false
 EOT
-  # إنشاء كود البروكسي الآمن مع الواجهة الزجاجية الجديدة
+  # إنشاء كود البروكسي الآمن مع الواجهة الزجاجية وتوافق الآيفون
   cat << 'EOF' > /tmp/auth-proxy.js
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
@@ -129,7 +129,6 @@ const loginHtml = `
     margin: 0;
     padding: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    /* خلفية متدرجة بنفسجية ساحرة تتحرك ببطء */
     background: linear-gradient(135deg, #1e0b36, #4a154b, #6a1b5a, #2b1055);
     background-size: 400% 400%;
     animation: gradientBG 15s ease infinite;
@@ -143,7 +142,6 @@ const loginHtml = `
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
   }
-  /* تأثير الزجاج الشفاف */
   .glass-panel {
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(12px);
@@ -227,12 +225,10 @@ const loginHtml = `
     <form method="POST" action="/st-login">
       <div class="input-container">
         <input type="text" name="username" placeholder="Username" required autocomplete="username" />
-        <!-- أيقونة المستخدم -->
         <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
       </div>
       <div class="input-container">
         <input type="password" name="password" placeholder="Password" required autocomplete="current-password" />
-        <!-- أيقونة القفل -->
         <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
       </div>
       <button type="submit" class="login-btn">Login</button>
@@ -254,11 +250,13 @@ app.post('/st-login', loginLimiter, (req, res) => {
         isMatch = userMatch && passMatch;
     }
     if (isMatch) {
+        const expiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
         res.cookie('st_auth', AUTH_TOKEN, {
             httpOnly: true,
             secure: true,
-            sameSite: 'strict',
-            maxAge: 365 * 24 * 60 * 60 * 1000
+            sameSite: 'lax', // تم التعديل من أجل الآيفون
+            maxAge: 365 * 24 * 60 * 60 * 1000,
+            expires: expiryDate // تم إضافة تاريخ صريح من أجل الآيفون
         });
         res.redirect('/');
     } else {
@@ -307,7 +305,6 @@ if [ -n "${RCLONE_CONFIG_CONTENT}" ]; then
   echo "--- Configuring Rclone for Google Drive ---"
   RCLONE_CONF="/tmp/rclone.conf"
   echo "${RCLONE_CONFIG_CONTENT}" > "${RCLONE_CONF}"
-
   echo "--- [RESTORE] Checking for existing data in Google Drive ---"
   if [ ! -d "${APP_HOME}/data/default-user/chats" ] || [ -z "$(ls -A ${APP_HOME}/data/default-user/chats 2>/dev/null)" ]; then
     echo "No existing chats found locally. Restoring from Google Drive..."
@@ -338,12 +335,10 @@ if [ -n "$PLUGINS" ]; then
     if [ -z "$plugin_url" ]; then continue; fi
     plugin_name_git=$(basename "$plugin_url")
     plugin_name=${plugin_name_git%.git}
-
     if [ "$plugin_name" = "cloud-saves" ]; then
        echo "--- Skipping cloud-saves plugin as Rclone is now handling backups ---"
        continue
     fi
-
     plugin_dir="./plugins/$plugin_name"
     echo "--- Installing plugin: $plugin_name from $plugin_url into $plugin_dir ---"
     rm -rf "$plugin_dir"
